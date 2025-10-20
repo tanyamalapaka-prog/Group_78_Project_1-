@@ -1,3 +1,4 @@
+# Group members: Pavneet Kaur, Sanjay Jillellamudi, Tania Vazquez, Tanya Malapaka, Isabel Zheng
 import random
 
 # Word bank of random words
