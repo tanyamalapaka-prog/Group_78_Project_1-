@@ -1,0 +1,73 @@
+# Group members: Pavneet Kaur, Sanjay Jillellamudi, Tania Vazquez, Tanya Malapaka, Isabel Zheng
+import praw, requests, argparse
+
+# initialize Reddit API
+reddit = praw.Reddit(
+    client_id="",
+    client_secret="",
+    user_agent=""
+)
+
+# parse command-line topics
+parser = argparse.ArgumentParser(description="Fetch recipe posts from r/recipes for given topics.")
+parser.add_argument(
+    "-topics", "--topics",
+    nargs="+",
+    metavar="TOPIC",
+    help='List of topics, e.g. -topics "christmas" "eggnog" "meatloaf"',
+    default=["christmas", "fruitcake", "meatloaf", "new year's", "pie"]
+)
+args = parser.parse_args()
+topics = args.topics
+
+# search r/recipes for each topic
+subreddit = reddit.subreddit("recipes")
+
+for topic in topics:
+    print(f"\nSearching topic: {topic!r}")
+    found_any = False
+    for post in subreddit.search(topic, limit=5):
+        # debug: show what posts are returned
+        print(f"  Got post: title={post.title!r}, flair={post.link_flair_text!r}, url={post.url!r}")
+
+        flair = (post.link_flair_text or "").lower()
+        if "recipe" not in flair:
+            continue
+
+        found_any = True
+        print(f"Topic: {topic}")
+        print(f"Title: {post.title}")
+        print(f"Username: {post.author}")
+        print(f"URL: {post.url}")
+
+        # attempt to get a direct image URL
+        image_url = None
+        if hasattr(post, "preview") and "images" in post.preview:
+            image_url = post.preview["images"][0]["source"]["url"]
+        elif any(post.url.lower().endswith(ext) for ext in (".jpg", ".jpeg", ".png", ".gif")):
+            image_url = post.url
+        
+        if image_url:
+            try:
+                img_data = requests.get(image_url, timeout=10).content
+                with open(f"{topic}.jpg", "wb") as f:
+                    f.write(img_data)
+                print(f"Saved local file: {topic}.jpg")
+            except Exception as e:
+                print("  Failed to download image:", e)
+        else:
+            print("  No direct image found for this post.")
+
+        # get recipe text safely
+        post.comments.replace_more(limit=0)
+        comments = post.comments.list()
+        if comments:
+            top_comment = comments[0].body
+            print("Recipe:\n", top_comment)
+        else:
+            print("  No comments found for recipe text.")
+
+        break
+
+    if not found_any:
+        print("  No posts with a 'recipe' flair found for this topic.")
